@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Subtitle Resync Forge: Fix out-of-sync subtitles with a constant shift and frame-rate drift correction, convert SRT to VTT and back, strip overlaps and export a transcript</title>
+<meta name="description" content="Fix out-of-sync subtitles with a constant shift and frame-rate drift correction, convert SRT to VTT and back, strip overlaps and export a transcript. Free and local.">
+<meta name="keywords" content="sync subtitles online shift SRT, SRT to VTT converter, fix subtitles out of sync gradually, subtitle frame rate converter 25 to 23.976">
+<meta name="author" content="Amir Hussain"><meta name="robots" content="index, follow">
+<link rel="canonical" href="https://aamirtechs.github.io/subtitle-resync-forge/"><link rel="icon" href="favicon.svg"><meta name="theme-color" content="#0b1f3a">
+<meta property="og:type" content="website"><meta property="og:title" content="Subtitle Resync Forge"><meta property="og:description" content="Fix out-of-sync subtitles with a constant shift and frame-rate drift correction, convert SRT to VTT and back, strip overlaps and export a transcript. Free and local."><meta property="og:url" content="https://aamirtechs.github.io/subtitle-resync-forge/">
+<meta name="twitter:card" content="summary"><meta name="twitter:title" content="Subtitle Resync Forge"><meta name="twitter:description" content="Fix out-of-sync subtitles with a constant shift and frame-rate drift correction, convert SRT to VTT and back, strip overlaps and export a transcript. Free and local.">
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@600;700;800&family=Plus+Jakarta+Sans:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+:root{--navy:#0b1f3a;--navy2:#122c50;--gold:#d4a72c;--ink:#16233a;--muted:#5a6a84;--line:#e3e9f2;--bg:#f6f8fb;--card:#ffffff}
+*{box-sizing:border-box} body{margin:0;font-family:'Plus Jakarta Sans',system-ui,sans-serif;color:var(--ink);background:var(--bg)}
+header{background:linear-gradient(135deg,var(--navy),var(--navy2));color:#fff;padding:40px 20px 30px;text-align:center}
+header h1{font-family:Sora,sans-serif;font-size:2.1rem;margin:0 0 10px} header h1 span{color:var(--gold)}
+header p{max-width:720px;margin:0 auto 14px;opacity:.92;line-height:1.55}
+.stats{display:flex;gap:10px;justify-content:center;flex-wrap:wrap}.stats span{background:rgba(255,255,255,.12);padding:6px 12px;border-radius:999px;font-size:.85rem}
+main{max-width:960px;margin:0 auto;padding:24px 16px 40px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:22px;box-shadow:0 4px 18px rgba(11,31,58,.06)}
+label{font-weight:700;font-size:.9rem;display:block;margin:12px 0 5px}
+input,select,textarea{width:100%;padding:10px;border:1px solid var(--line);border-radius:8px;font:inherit}
+textarea{min-height:110px} .row{display:grid;grid-template-columns:1fr 1fr;gap:14px}@media(max-width:700px){.row{grid-template-columns:1fr}}
+.btn-run{background:var(--gold);color:#16233a;border:0;padding:12px 22px;border-radius:9px;font-weight:800;cursor:pointer;margin-top:16px}
+.btn-ghost{background:#fff;border:1px solid var(--line);padding:10px 16px;border-radius:9px;cursor:pointer;font-weight:700}
+pre{background:#0b1f3a;color:#eaf0fa;padding:14px;border-radius:10px;overflow:auto;white-space:pre-wrap;word-break:break-word;font-size:.85rem}
+.privacy{color:var(--muted);font-size:.9rem;margin-top:12px}
+section.features{background:#fff;border:1px solid var(--line);border-radius:14px;padding:20px 22px;margin-top:18px}
+footer{background:var(--navy);color:#dbe6f5;text-align:center;padding:26px 16px;line-height:1.6} footer a{color:var(--gold)}
+table{width:100%;border-collapse:collapse;font-size:.9rem} th,td{border-bottom:1px solid var(--line);padding:7px;text-align:left}
+</style>
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"SoftwareApplication","name":"Subtitle Resync Forge","applicationCategory":"UtilitiesApplication","operatingSystem":"Any","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"author":{"@type":"Person","name":"Amir Hussain","url":"https://aamirtechs.com"},"url":"https://aamirtechs.github.io/subtitle-resync-forge/"}</script>
+</head><body><header><h1>Subtitle <span>Resync</span> Forge</h1><p>Fix out-of-sync subtitles properly, with a constant shift and frame-rate drift, convert SRT to VTT and back, and strip overlaps, in one local tool.</p><div class="stats"><span>Free</span><span>100% in your browser</span><span>No sign-up</span></div></header><main><div class="card">
+<label>Upload subtitle file (SRT, VTT, ASS or SBV)</label><input type="file" id="file" accept=".srt,.vtt,.ass,.ssa,.sbv">
+<label>Subtitle text</label><textarea id="subs" style="min-height:150px">1
+00:00:01,000 --> 00:00:03,000
+Hello world
+
+2
+00:00:03,500 --> 00:00:05,000
+Second line</textarea>
+<div class="row"><div><label>Constant shift (ms, negative allowed)</label><input id="shift" type="number" value="0"></div><div><label>Frame-rate conversion</label><select id="fps"><option value="">None</option><option value="25,23.976">25 to 23.976</option><option value="23.976,25">23.976 to 25</option><option value="29.97,23.976">29.97 to 23.976</option><option value="23.976,29.97">23.976 to 29.97</option></select></div></div>
+<div class="row"><div><label>Two-point: first cue is at (seconds in file)</label><input id="a1" type="number" placeholder="optional"></div><div><label>Two-point: last cue is at (seconds in file)</label><input id="a2" type="number" placeholder="optional"></div></div>
+<div class="row"><div><label>They should be at (seconds)</label><input id="b1" type="number" placeholder="optional"></div><div><label>Last should be at (seconds)</label><input id="b2" type="number" placeholder="optional"></div></div>
+<label><input type="checkbox" id="fix" style="width:auto"> Strip overlaps after transforming</label><br>
+<button class="btn-run" id="run">Apply and validate</button> <button class="btn-ghost" id="dlSrt">Download SRT</button> <button class="btn-ghost" id="dlVtt">Download VTT</button> <button class="btn-ghost" id="dlTxt">Transcript .txt</button>
+<pre id="out">Validation results will appear here.</pre>
+<p class="privacy">Runs 100% in your browser. Your files never leave this device.</p></div>
+<section class="features"><h2>How it works</h2><ul><li>SRT, VTT, ASS and SBV in, SRT and VTT out, all parsed locally.</li><li>Constant shift for simple fixes and frame-rate rescale presets for growing drift.</li><li>Two-point anchor sync pins the first and last cue to known times.</li><li>Validation for overlaps, negative times and reading speed over 21 CPS, plus transcript export.</li></ul></section>
+<script src="src/logic.js"></script>
+<script>
+var L=window.SubtitleResyncForge;var lastCues=[];
+function fmtOf(name,text){if(/\.vtt$/i.test(name))return"vtt";if(/\.ass$/i.test(name)||/\.ssa$/i.test(name))return"ass";if(/\.sbv$/i.test(name))return"sbv";return undefined;}
+document.getElementById("file").onchange=function(e){var f=e.target.files[0];if(!f)return;f.text().then(function(t){document.getElementById("subs").value=t;document.getElementById("subs").dataset.fmt=fmtOf(f.name,t)||"";});};
+function transform(){var fmt=document.getElementById("subs").dataset.fmt||"";var cues=L.parseSubtitles(document.getElementById("subs").value,fmt);
+var a1=document.getElementById("a1").value,a2=document.getElementById("a2").value,b1=document.getElementById("b1").value,b2=document.getElementById("b2").value;
+if(a1!==""&&a2!==""&&b1!==""&&b2!==""){cues=L.twoPointSync(cues,Number(a1)*1000,Number(a2)*1000,Number(b1)*1000,Number(b2)*1000).cues;}
+var fps=document.getElementById("fps").value;if(fps){var p=fps.split(",");cues=L.rescaleCues(cues,L.fpsRatio(Number(p[0]),Number(p[1])));}
+var sh=Number(document.getElementById("shift").value)||0;if(sh)cues=L.shiftCues(cues,sh);
+if(document.getElementById("fix").checked)cues=L.fixOverlaps(cues);lastCues=cues;return cues;}
+document.getElementById("run").onclick=function(){var cues=transform();var issues=L.validateCues(cues);
+document.getElementById("out").textContent="Cues: "+cues.length+"\n"+(issues.length?issues.map(function(i){return "Cue "+(i.index+1)+": "+i.type+(i.cps?" ("+i.cps+" CPS)":"");}).join("\n"):"No overlaps, timing or reading-speed problems found.");};
+function dl(text,name,type){var a=document.createElement("a");a.href=URL.createObjectURL(new Blob([text],{type:type}));a.download=name;a.click();}
+document.getElementById("dlSrt").onclick=function(){dl(L.serializeSRT(lastCues.length?lastCues:transform()),"resynced.srt","text/plain");};
+document.getElementById("dlVtt").onclick=function(){dl(L.serializeVTT(lastCues.length?lastCues:transform()),"resynced.vtt","text/vtt");};
+document.getElementById("dlTxt").onclick=function(){dl(L.toTranscript(lastCues.length?lastCues:transform()),"transcript.txt","text/plain");};
+</script></main><footer>Built by Amir Hussain, operations manager and founder of <a href="https://aamirtechs.com" target="_blank" rel="noopener">AamirTechs: operations, customer support and e-commerce services</a>.<br><a href="https://github.com/aamirtechs" target="_blank" rel="noopener">More open source tools on GitHub</a></footer></body></html>

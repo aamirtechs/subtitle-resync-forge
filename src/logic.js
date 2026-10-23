@@ -1,0 +1,28 @@
+"use strict";
+function parseTimestamp(str){var s=String(str||"").trim().replace(".",",");var m=s.match(/^(?:(\d+):)?(\d{1,2}):(\d{2})[,.](\d{1,3})$/);if(m){var h=Number(m[1]||0),mi=Number(m[2]),se=Number(m[3]),ms=Number(String(m[4]).padEnd(3,"0"));return ((h*60+mi)*60+se)*1000+ms;}
+var m2=s.match(/^(\d+):(\d{2})[,.](\d{1,3})$/);if(m2)return (Number(m2[1])*60+Number(m2[2]))*1000+Number(String(m2[3]).padEnd(3,"0"));throw new Error("Bad timestamp: "+str);}
+function pad(n,l){return String(n).padStart(l||2,"0");}
+function formatTimestamp(ms,format){var t=Math.max(0,Math.round(Number(ms)||0));var h=Math.floor(t/3600000);var mi=Math.floor(t%3600000/60000);var se=Math.floor(t%60000/1000);var mss=t%1000;
+if(format==="vtt")return pad(h)+":"+pad(mi)+":"+pad(se)+"."+pad(mss,3);return pad(h)+":"+pad(mi)+":"+pad(se)+","+pad(mss,3);}
+function timingLine(line){var parts=String(line).split("-->");if(parts.length!==2)return null;try{return{start:parseTimestamp(parts[0].trim().split(/\s+/)[0]),end:parseTimestamp(parts[1].trim().split(/\s+/)[0])};}catch(e){return null;}}
+function parseSRT(text){var blocks=String(text||"").replace(/\r\n/g,"\n").split(/\n\s*\n/);var cues=[];
+blocks.forEach(function(b){var lines=b.split("\n").filter(function(l){return l.trim()!=="";});if(!lines.length)return;var ti=lines.findIndex(function(l){return l.includes("-->");});if(ti<0)return;var t=timingLine(lines[ti]);if(!t)return;cues.push({start:t.start,end:t.end,text:lines.slice(ti+1).join("\n")});});return cues;}
+function parseVTT(text){var s=String(text||"").replace(/\r\n/g,"\n");s=s.replace(/^WEBVTT[^\n]*\n/,"");return parseSRT(s);}
+function parseSBV(text){var cues=[];String(text||"").replace(/\r\n/g,"\n").split(/\n\s*\n/).forEach(function(b){var lines=b.split("\n").filter(Boolean);if(lines.length<2)return;var p=lines[0].split(",");if(p.length!==2)return;try{cues.push({start:parseTimestamp(p[0]),end:parseTimestamp(p[1]),text:lines.slice(1).join("\n")});}catch(e){}});return cues;}
+function parseASS(text){var cues=[];String(text||"").split(/\r?\n/).forEach(function(l){if(!l.startsWith("Dialogue:"))return;var parts=l.slice(9).split(",");if(parts.length<10)return;try{var st=parseTimestamp(parts[1].trim()),en=parseTimestamp(parts[2].trim());}catch(e){return;}
+var txt=parts.slice(9).join(",").replace(/\\N/g,"\n").replace(/\{[^}]*\}/g,"");cues.push({start:st,end:en,text:txt});});return cues;}
+function parseSubtitles(text,format){var f=(format||"").toLowerCase();if(f==="vtt")return parseVTT(text);if(f==="ass"||f==="ssa")return parseASS(text);if(f==="sbv")return parseSBV(text);if(String(text).trim().startsWith("WEBVTT"))return parseVTT(text);if(/^Dialogue:/m.test(text))return parseASS(text);return parseSRT(text);}
+function serializeSRT(cues){return(cues||[]).map(function(c,i){return (i+1)+"\n"+formatTimestamp(c.start,"srt")+" --> "+formatTimestamp(c.end,"srt")+"\n"+c.text;}).join("\n\n")+(cues&&cues.length?"\n":"");}
+function serializeVTT(cues){return "WEBVTT\n\n"+(cues||[]).map(function(c){return formatTimestamp(c.start,"vtt")+" --> "+formatTimestamp(c.end,"vtt")+"\n"+c.text;}).join("\n\n")+(cues&&cues.length?"\n":"");}
+function shiftCues(cues,ms){return(cues||[]).map(function(c){return{start:Math.max(0,c.start+ms),end:Math.max(0,c.end+ms),text:c.text};});}
+function fpsRatio(fromFps,toFps){if(!(fromFps>0)||!(toFps>0))throw new Error("Frame rates must be positive");return fromFps/toFps;}
+function rescaleCues(cues,ratio){return(cues||[]).map(function(c){return{start:Math.round(c.start*ratio),end:Math.round(c.end*ratio),text:c.text};});}
+function twoPointSync(cues,srcA,srcB,dstA,dstB){if(srcB===srcA)throw new Error("Source anchors must differ");var scale=(dstB-dstA)/(srcB-srcA);var offset=dstA-srcA*scale;return{cues:(cues||[]).map(function(c){return{start:Math.max(0,Math.round(c.start*scale+offset)),end:Math.max(0,Math.round(c.end*scale+offset)),text:c.text};}),scale:scale,offsetMs:Math.round(offset)};}
+function cps(cue){var dur=(cue.end-cue.start)/1000;if(dur<=0)return Infinity;var chars=String(cue.text||"").replace(/\s/g,"").length;return Math.round(chars/dur*10)/10;}
+function detectOverlaps(cues){var out=[];var sorted=(cues||[]).slice().sort(function(a,b){return a.start-b.start;});for(var i=1;i<sorted.length;i++){if(sorted[i].start<sorted[i-1].end)out.push({index:i,prevEnd:sorted[i-1].end,start:sorted[i].start,overlapMs:sorted[i-1].end-sorted[i].start});}return out;}
+function fixOverlaps(cues){var sorted=(cues||[]).slice().sort(function(a,b){return a.start-b.start;});for(var i=1;i<sorted.length;i++){if(sorted[i].start<sorted[i-1].end)sorted[i-1].end=sorted[i].start;}return sorted;}
+function validateCues(cues){var issues=[];(cues||[]).forEach(function(c,i){if(c.end<=c.start)issues.push({index:i,type:"non-positive-duration"});if(cps(c)>21)issues.push({index:i,type:"high-cps",cps:cps(c)});});detectOverlaps(cues).forEach(function(o){issues.push({index:o.index,type:"overlap",overlapMs:o.overlapMs});});return issues;}
+function toTranscript(cues){return(cues||[]).map(function(c){return c.text;}).join("\n");}
+const api={parseTimestamp:parseTimestamp,formatTimestamp:formatTimestamp,parseSRT:parseSRT,parseVTT:parseVTT,parseSBV:parseSBV,parseASS:parseASS,parseSubtitles:parseSubtitles,serializeSRT:serializeSRT,serializeVTT:serializeVTT,shiftCues:shiftCues,fpsRatio:fpsRatio,rescaleCues:rescaleCues,twoPointSync:twoPointSync,cps:cps,detectOverlaps:detectOverlaps,fixOverlaps:fixOverlaps,validateCues:validateCues,toTranscript:toTranscript};
+if(typeof module!=="undefined"&&module.exports){module.exports=api;}
+if(typeof window!=="undefined"){window.SubtitleResyncForge=api;}
